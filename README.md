@@ -22,8 +22,12 @@ git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills
 1. Creates symlinks `~/.claude/skills/<skill>` → `~/.claude/skills/my-skills/<skill>`
    for every skill folder in this repo.
 2. Marks scripts in `bin/` executable.
-3. Installs a `SessionStart` hook in `~/.claude/settings.json` that silently checks
-   for new versions on each Claude Code session start.
+3. Installs a `SessionStart` hook in `~/.claude/settings.json` that, on each
+   Claude Code session start, forks a background job which `git pull`s the repo,
+   re-runs `setup -q` if `HEAD` moved, and logs to
+   `~/.my-skills/analytics/session-update.log`. Pattern modeled on gstack's
+   `gstack-session-update`: exits fast, never blocks the session, 1h throttle,
+   lockfile with stale-PID detection.
 4. Writes a marker-delimited block to `~/.claude/CLAUDE.md` listing the installed
    skills and the install/update commands, so Claude knows they exist. The block
    is regenerated on every run; any content outside the `<!-- BEGIN/END my-skills -->`
@@ -34,32 +38,46 @@ newly added skills.
 
 ## Update
 
-The `SessionStart` hook runs `bin/my-skills-update-check` quietly in the background.
-It compares the local `VERSION` file against the remote one on `main` and writes a
-marker to `~/.my-skills/just-upgraded-from` when there's something newer.
+Updates happen automatically on the next Claude Code session start (forked to
+the background — zero latency). The `SessionStart` hook runs
+`bin/my-skills-session-update`, which:
 
-To actually pull updates:
+- Exits 0 immediately (fork to background; never blocks session startup)
+- Throttles to at most one check per hour
+- Acquires a lockfile (with stale-PID detection) to avoid concurrent upgrades
+- Runs `git pull --ff-only` and, if `HEAD` moved, re-runs `./setup -q`
+- Writes `~/.my-skills/just-upgraded-from` so the next session can surface a note
+- Logs every run to `~/.my-skills/analytics/session-update.log`
+
+To force an update now (outside of a session):
 
 ```bash
 ~/.claude/skills/my-skills/bin/my-skills-upgrade
 ```
 
-This runs `git pull --ff-only` and re-runs `setup` to relink any new skills.
+To see whether a newer version is available without pulling:
+
+```bash
+~/.claude/skills/my-skills/bin/my-skills-update-check
+```
 
 ## State directory
 
-Update-check state lives in `~/.my-skills/`:
-- `last-update-check` — epoch of the last remote check (1h cooldown)
-- `update-snoozed` — `<version> <level> <epoch>` snooze record
+State lives in `~/.my-skills/`:
+- `last-session-update` — epoch of the last auto-update run (1h throttle)
+- `last-update-check` — epoch of the last manual version check (1h cooldown)
+- `update-snoozed` — `<version> <level> <epoch>` snooze record (manual check only)
 - `just-upgraded-from` — marker for "you just upgraded from version X"
+- `.setup-lock/` — lockfile directory used during background auto-updates
+- `analytics/session-update.log` — per-run log of the auto-update hook
 
 Delete this dir to fully reset update state.
 
 ## Disable the auto-update hook
 
 Edit `~/.claude/settings.json` and remove the entry whose `command` references
-`my-skills-update-check`. The skills themselves keep working — only the periodic
-check stops.
+`my-skills-session-update`. The skills themselves keep working — only the
+periodic auto-update stops.
 
 ## Uninstall
 

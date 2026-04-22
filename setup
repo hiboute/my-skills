@@ -1,23 +1,33 @@
 #!/usr/bin/env bash
 # my-skills setup — symlink skills into ~/.claude/skills and install the
-# SessionStart auto-update-check hook.
+# SessionStart auto-update hook.
 #
 # Usage:
 #   ./setup              install/repair (idempotent)
-#   ./setup --uninstall  remove symlinks + hook entry
+#   ./setup -q           quiet mode (used by the session-update hook)
+#   ./setup --uninstall  remove symlinks + hook entry + CLAUDE.md block
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$(dirname "$REPO_DIR")"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-HOOK_CMD="$REPO_DIR/bin/my-skills-update-check"
+HOOK_CMD="$REPO_DIR/bin/my-skills-session-update"
+LEGACY_HOOK_CMD="$REPO_DIR/bin/my-skills-update-check"
 BLOCK_BEGIN="<!-- BEGIN my-skills -->"
 BLOCK_END="<!-- END my-skills -->"
 REPO_URL="https://github.com/hiboute/my-skills.git"
 
 UNINSTALL=0
-[ "${1:-}" = "--uninstall" ] && UNINSTALL=1
+QUIET=0
+for arg in "$@"; do
+  case "$arg" in
+    --uninstall) UNINSTALL=1 ;;
+    -q|--quiet) QUIET=1 ;;
+  esac
+done
+
+log() { [ "$QUIET" -eq 1 ] || echo "$@"; }
 
 # ─── Discover skills (every dir at repo root with a SKILL.md) ────────
 discover_skills() {
@@ -41,13 +51,13 @@ link_skills() {
     if [ -L "$target" ]; then
       current="$(readlink "$target")"
       if [ "$current" = "$src" ]; then
-        echo "ok:   $name (already linked)"
+        log "ok:   $name (already linked)"
         continue
       fi
       rm "$target"
     fi
     ln -s "$src" "$target"
-    echo "link: $name -> $src"
+    log "link: $name -> $src"
   done
 }
 
@@ -56,7 +66,7 @@ unlink_skills() {
     target="$SKILLS_DIR/$name"
     if [ -L "$target" ] && [ "$(readlink "$target")" = "$REPO_DIR/$name" ]; then
       rm "$target"
-      echo "rm:   $name"
+      log "rm:   $name"
     fi
   done
 }
@@ -80,29 +90,31 @@ install_hook() {
   [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
   settings_backup
 
-  # Append a new SessionStart entry only if no entry already runs our command.
-  jq --arg cmd "$HOOK_CMD" '
+  # 1. Drop any legacy entry pointing at the old update-check command.
+  # 2. Append our new entry only if not already present.
+  jq --arg cmd "$HOOK_CMD" --arg legacy "$LEGACY_HOOK_CMD" '
     .hooks //= {}
     | .hooks.SessionStart //= []
+    | .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $legacy)))
     | if any(.hooks.SessionStart[]?; .hooks[]?.command == $cmd) then .
       else .hooks.SessionStart += [{
         "matcher": ".*",
         "hooks": [{ "type": "command", "command": $cmd }]
       }] end
   ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-  echo "hook: SessionStart -> $HOOK_CMD"
+  log "hook: SessionStart -> $HOOK_CMD"
 }
 
 remove_hook() {
   ensure_jq
   [ -f "$SETTINGS" ] || return 0
   settings_backup
-  jq --arg cmd "$HOOK_CMD" '
+  jq --arg cmd "$HOOK_CMD" --arg legacy "$LEGACY_HOOK_CMD" '
     if .hooks.SessionStart? then
-      .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $cmd)))
+      .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $cmd and .command != $legacy)))
     else . end
   ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-  echo "hook: removed SessionStart entry for my-skills"
+  log "hook: removed SessionStart entry for my-skills"
 }
 
 # ─── CLAUDE.md block (advertise skills + install/update commands) ───
@@ -140,7 +152,7 @@ install_claude_md() {
   fi
   render_block >> "$tmp"
   mv "$tmp" "$CLAUDE_MD"
-  echo "claude.md: block written to $CLAUDE_MD"
+  log "claude.md: block written to $CLAUDE_MD"
 }
 
 remove_claude_md() {
@@ -153,7 +165,7 @@ remove_claude_md() {
     !skip { print }
   ' "$CLAUDE_MD" > "$tmp"
   mv "$tmp" "$CLAUDE_MD"
-  echo "claude.md: removed my-skills block"
+  log "claude.md: removed my-skills block"
 }
 
 # ─── Mark scripts executable ────────────────────────────────────────
@@ -168,11 +180,11 @@ if [ "$UNINSTALL" -eq 1 ]; then
   unlink_skills
   remove_hook
   remove_claude_md
-  echo "uninstall complete (repo and ~/.my-skills/ left intact)"
+  log "uninstall complete (repo and ~/.my-skills/ left intact)"
 else
   chmod_bin
   link_skills
   install_hook
   install_claude_md
-  echo "setup complete"
+  log "setup complete"
 fi
