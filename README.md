@@ -19,8 +19,15 @@ git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills
 ```
 
 `setup` does four things:
-1. Creates symlinks `~/.claude/skills/<skill>` → `~/.claude/skills/my-skills/<skill>`
-   for every skill folder in this repo.
+1. For every skill folder in this repo, creates a real directory at
+   `~/.claude/skills/<skill>/` containing a single symlink
+   `SKILL.md` → `~/.claude/skills/my-skills/<skill>/SKILL.md`. This is the same
+   pattern used by [gstack](https://github.com/garrytan/gstack) — it lets Claude
+   discover the skill at the top level of `~/.claude/skills/` (so it's reachable
+   as `/ideation`, not `/my-skills/ideation`) while the actual content stays in
+   the cloned repo. Any legacy whole-directory symlink left by an earlier
+   install is migrated in place. Skill name comes from the SKILL.md `name:`
+   frontmatter field, with the directory name as fallback.
 2. Marks scripts in `bin/` executable.
 3. Installs a `SessionStart` hook in `~/.claude/settings.json` that, on each
    Claude Code session start, forks a background job which `git pull`s the repo,
@@ -32,6 +39,11 @@ git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills
    skills and the install/update commands, so Claude knows they exist. The block
    is regenerated on every run; any content outside the `<!-- BEGIN/END my-skills -->`
    markers is preserved.
+
+Because only `SKILL.md` is symlinked, skill files that reference sibling content
+(like `categories/…` or `references/…`) must use absolute paths inside the
+cloned repo: `~/.claude/skills/my-skills/<skill>/<path>`. Same convention as
+gstack's SKILL.md files.
 
 Re-run `setup` any time to repair links, refresh the CLAUDE.md block, or pick up
 newly added skills.
@@ -85,8 +97,10 @@ periodic auto-update stops.
 ~/.claude/skills/my-skills/setup --uninstall
 ```
 
-Removes symlinks, the hook entry, and the CLAUDE.md block. Leaves the repo dir
-and `~/.my-skills/` alone in case you want to reinstall.
+Removes the per-skill directories we own (those whose `SKILL.md` is a symlink
+pointing into this repo), any leftover legacy symlinks, the SessionStart hook
+entry, and the CLAUDE.md block. Leaves the repo dir and `~/.my-skills/` alone
+in case you want to reinstall.
 
 ## License
 
