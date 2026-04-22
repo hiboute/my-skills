@@ -9,7 +9,7 @@ The installed block looks like this:
 
 ```
 <!-- BEGIN my-skills -->
-Available my-skills skills:
+Available hiboute skills:
 
 '/ideation'
 '/roadmap'
