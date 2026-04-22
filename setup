@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# my-skills setup — symlink skills into ~/.claude/skills and install the
+# SessionStart auto-update-check hook.
+#
+# Usage:
+#   ./setup              install/repair (idempotent)
+#   ./setup --uninstall  remove symlinks + hook entry
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKILLS_DIR="$(dirname "$REPO_DIR")"
+SETTINGS="$HOME/.claude/settings.json"
+HOOK_CMD="$REPO_DIR/bin/my-skills-update-check"
+
+UNINSTALL=0
+[ "${1:-}" = "--uninstall" ] && UNINSTALL=1
+
+# ─── Discover skills (every dir at repo root with a SKILL.md) ────────
+discover_skills() {
+  for d in "$REPO_DIR"/*/; do
+    name="$(basename "$d")"
+    [ -f "$d/SKILL.md" ] || continue
+    echo "$name"
+  done
+}
+
+link_skills() {
+  for name in $(discover_skills); do
+    target="$SKILLS_DIR/$name"
+    src="$REPO_DIR/$name"
+    # Skip if a non-symlink dir with the same name already exists
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+      echo "skip: $target exists and is not a symlink" >&2
+      continue
+    fi
+    # Replace stale symlinks
+    if [ -L "$target" ]; then
+      current="$(readlink "$target")"
+      if [ "$current" = "$src" ]; then
+        echo "ok:   $name (already linked)"
+        continue
+      fi
+      rm "$target"
+    fi
+    ln -s "$src" "$target"
+    echo "link: $name -> $src"
+  done
+}
+
+unlink_skills() {
+  for name in $(discover_skills); do
+    target="$SKILLS_DIR/$name"
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$REPO_DIR/$name" ]; then
+      rm "$target"
+      echo "rm:   $name"
+    fi
+  done
+}
+
+# ─── Hook (un)installer using jq for safe JSON merge ────────────────
+ensure_jq() {
+  command -v jq >/dev/null 2>&1 || {
+    echo "Error: jq is required (brew install jq)" >&2
+    exit 1
+  }
+}
+
+settings_backup() {
+  [ -f "$SETTINGS" ] || return 0
+  cp "$SETTINGS" "${SETTINGS}.bak.$(date +%s)"
+}
+
+install_hook() {
+  ensure_jq
+  mkdir -p "$(dirname "$SETTINGS")"
+  [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
+  settings_backup
+
+  # Append a new SessionStart entry only if no entry already runs our command.
+  jq --arg cmd "$HOOK_CMD" '
+    .hooks //= {}
+    | .hooks.SessionStart //= []
+    | if any(.hooks.SessionStart[]?; .hooks[]?.command == $cmd) then .
+      else .hooks.SessionStart += [{
+        "matcher": ".*",
+        "hooks": [{ "type": "command", "command": $cmd }]
+      }] end
+  ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+  echo "hook: SessionStart -> $HOOK_CMD"
+}
+
+remove_hook() {
+  ensure_jq
+  [ -f "$SETTINGS" ] || return 0
+  settings_backup
+  jq --arg cmd "$HOOK_CMD" '
+    if .hooks.SessionStart? then
+      .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $cmd)))
+    else . end
+  ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
+  echo "hook: removed SessionStart entry for my-skills"
+}
+
+# ─── Mark scripts executable ────────────────────────────────────────
+chmod_bin() {
+  for f in "$REPO_DIR"/bin/*; do
+    [ -f "$f" ] && chmod +x "$f"
+  done
+  chmod +x "$REPO_DIR/setup"
+}
+
+if [ "$UNINSTALL" -eq 1 ]; then
+  unlink_skills
+  remove_hook
+  echo "uninstall complete (repo and ~/.my-skills/ left intact)"
+else
+  chmod_bin
+  link_skills
+  install_hook
+  echo "setup complete"
+fi

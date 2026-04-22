@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# my-skills-upgrade — pull latest changes and relink skills.
+set -euo pipefail
+
+REPO_DIR="${MY_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${MY_SKILLS_STATE_DIR:-$HOME/.my-skills}"
+MARKER_FILE="$STATE_DIR/just-upgraded-from"
+
+cd "$REPO_DIR"
+
+if [ ! -d .git ]; then
+  echo "Error: $REPO_DIR is not a git repo (was it cloned with git?)" >&2
+  exit 1
+fi
+
+old_version="$(head -n1 VERSION 2>/dev/null || echo unknown)"
+
+echo "Fetching origin..."
+git fetch --quiet origin
+
+# Refuse to overwrite local edits — user can stash/commit and rerun.
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Error: working tree has local changes. Commit or stash first." >&2
+  exit 1
+fi
+
+git pull --ff-only --quiet origin main
+
+new_version="$(head -n1 VERSION 2>/dev/null || echo unknown)"
+
+# Re-run setup to pick up any newly added skill folders.
+"$REPO_DIR/setup"
+
+mkdir -p "$STATE_DIR"
+printf '%s\n' "$old_version" > "$MARKER_FILE"
+
+if [ "$old_version" = "$new_version" ]; then
+  echo "Already up to date ($new_version)."
+else
+  echo "Upgraded $old_version → $new_version."
+fi

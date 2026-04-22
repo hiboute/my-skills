@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# my-skills-update-check — silent periodic version check.
+#
+# Reads stdin (Claude Code SessionStart hook payload) and discards it; we only
+# care that this fires on session start. Output to stdout is shown to the user
+# in some hosts; we keep it empty unless something is genuinely actionable.
+#
+# Behavior:
+#   - 1h cooldown via $STATE_DIR/last-update-check
+#   - Snooze respected (file format: "<version> <level> <epoch>")
+#   - When remote VERSION > local VERSION, writes $STATE_DIR/just-upgraded-from
+#     so the user sees a hint next session, and prints one info line.
+#
+# Env overrides:
+#   MY_SKILLS_DIR        — override repo path
+#   MY_SKILLS_REMOTE_URL — override remote VERSION URL
+#   MY_SKILLS_STATE_DIR  — override ~/.my-skills
+set -eu
+
+# Drain any hook payload on stdin so the producer doesn't block.
+[ -t 0 ] || cat >/dev/null 2>&1 || true
+
+REPO_DIR="${MY_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${MY_SKILLS_STATE_DIR:-$HOME/.my-skills}"
+CACHE_FILE="$STATE_DIR/last-update-check"
+MARKER_FILE="$STATE_DIR/just-upgraded-from"
+SNOOZE_FILE="$STATE_DIR/update-snoozed"
+VERSION_FILE="$REPO_DIR/VERSION"
+REMOTE_URL="${MY_SKILLS_REMOTE_URL:-https://raw.githubusercontent.com/hiboute/my-skills/main/VERSION}"
+
+mkdir -p "$STATE_DIR"
+
+# ─── Cooldown: only check once per hour unless --force ──────────────
+FORCE=0
+[ "${1:-}" = "--force" ] && FORCE=1
+
+if [ "$FORCE" -eq 0 ] && [ -f "$CACHE_FILE" ]; then
+  last=$(cat "$CACHE_FILE" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  # 3600s = 1h
+  if [ $((now - last)) -lt 3600 ]; then
+    exit 0
+  fi
+fi
+
+# ─── Snooze check ───────────────────────────────────────────────────
+is_snoozed() {
+  [ -f "$SNOOZE_FILE" ] || return 1
+  local ver level epoch dur now expires
+  ver="$(awk 'NR==1{print $1}' "$SNOOZE_FILE" 2>/dev/null || true)"
+  level="$(awk 'NR==1{print $2}' "$SNOOZE_FILE" 2>/dev/null || true)"
+  epoch="$(awk 'NR==1{print $3}' "$SNOOZE_FILE" 2>/dev/null || true)"
+  [ -n "$ver" ] && [ -n "$level" ] && [ -n "$epoch" ] || return 1
+  case "$level$epoch" in *[!0-9]*) return 1 ;; esac
+  [ "$ver" = "$1" ] || return 1   # new version → ignore snooze
+  case "$level" in
+    1) dur=86400 ;;
+    2) dur=172800 ;;
+    *) dur=604800 ;;
+  esac
+  now=$(date +%s)
+  expires=$((epoch + dur))
+  [ "$now" -lt "$expires" ]
+}
+
+# ─── Fetch remote VERSION (3s timeout, fail silent) ─────────────────
+remote_version="$(curl -fsSL --max-time 3 "$REMOTE_URL" 2>/dev/null | head -n1 | tr -d '[:space:]' || true)"
+date +%s > "$CACHE_FILE"
+
+[ -n "$remote_version" ] || exit 0
+[ -f "$VERSION_FILE" ] || exit 0
+local_version="$(head -n1 "$VERSION_FILE" | tr -d '[:space:]')"
+
+[ "$remote_version" != "$local_version" ] || exit 0
+is_snoozed "$remote_version" && exit 0
+
+# Write marker (consumed by my-skills-upgrade or surfaced manually).
+printf '%s\n' "$local_version" > "$MARKER_FILE"
+
+# Single line of context. Hooks producing JSON to stdout would be parsed by
+# Claude Code; plain text is shown verbatim in some hosts and ignored in others.
+echo "[my-skills] update available: $local_version → $remote_version (run: my-skills-upgrade)"
