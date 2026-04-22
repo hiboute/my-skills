@@ -10,6 +10,10 @@ Pattern inspired by [garrytan/gstack](https://github.com/garrytan/gstack).
   findings to GitHub as labeled issues.
 - **roadmap** — Generate a strategic product roadmap and publish it to a GitHub
   Project (v2). Re-runnable: each call adds one new sprint, optionally a new phase.
+- **autopilot** — Autonomously build a feature end-to-end via a three-phase
+  pipeline: plan → implement (in an isolated git worktree) → AI review with a
+  bounded fix loop. Each phase runs as a fresh-context subagent. Pipeline pattern
+  inspired by [AndyMik90/Aperant](https://github.com/AndyMik90/Aperant).
 
 ## Install
 

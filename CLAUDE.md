@@ -4,6 +4,7 @@ Available hiboute skills:
 
 - '/ideation'
 - '/roadmap'
+- '/autopilot'
 
 Install with: 'git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup'
 
