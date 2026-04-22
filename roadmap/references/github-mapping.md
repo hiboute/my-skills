@@ -6,13 +6,10 @@ Load this file after you have:
 
 ## Tools
 
-Use, in order of preference:
+Use the `gh` CLI for everything:
 
-1. **GitHub MCP tools** if the server in use exposes project-v2 helpers (e.g. `create_project`, `add_project_item`, `update_project_field`, `list_project_fields`). Names vary by MCP implementation — inspect what's available before committing.
-2. **`gh` CLI** (`gh project …`) as the portable fallback. Requires the `project` auth scope. If a command fails with a scope error, surface it and stop — ask the user to run `gh auth refresh -s project` and retry.
-3. **Raw GraphQL** via `gh api graphql` only if neither of the above covers a specific operation (e.g. creating a single-select option after field creation).
-
-The steps below use `gh` syntax for concreteness. Substitute MCP equivalents when available.
+1. **`gh` CLI** (`gh project …`, `gh issue …`, `gh label …`, `gh repo …`) for all typed operations. Requires the `project` auth scope for Projects v2 operations. If a command fails with a scope error, surface it and stop — ask the user to run `gh auth refresh -s project` and retry.
+2. **Raw GraphQL** via `gh api graphql` only for operations the typed commands don't cover (e.g. adding a single-select option to an existing field).
 
 ## Key GitHub Projects (v2) concepts
 
