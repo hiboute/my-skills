@@ -138,10 +138,61 @@ When the plan lists independent workstreams:
   the full plan (not just its slice — it needs to understand the whole
   feature), its assigned slice, and a list of the other workstreams running
   in parallel so it knows what **not** to touch.
-- **Same branch, same worktree** — all parallel agents write to the same
-  worktree. Git handles interleaved commits fine; just give each agent a
-  distinct commit message prefix (`[stream-A]`, `[stream-B]`) so the
-  reviewer can trace work later.
+- **One worktree per agent, one branch per agent** — never share a worktree
+  across concurrent agents. Two agents running `git add`/`git commit` in the
+  same worktree contend on `.git/index.lock`, and operations fail
+  non-deterministically even when the agents touch disjoint files. Give each
+  agent its own worktree on its own stream branch, branched from the target
+  branch.
+
+### Setup — one worktree per stream
+
+Create the target branch first (it's the integration branch the orchestrator
+merges streams onto), then fan out one worktree + branch per stream:
+
+```bash
+SLUG="<short-slug>"
+TARGET="autopilot/$SLUG"
+# Integration branch the streams merge into (created from the base branch
+# the orchestrator was given, e.g. main or develop).
+git worktree add ".worktrees/$SLUG" -b "$TARGET"
+
+# One worktree + branch per independent stream, each branched from $TARGET
+for STREAM in stream-a stream-b stream-c; do
+  git worktree add ".worktrees/$SLUG-$STREAM" -b "$TARGET-$STREAM" "$TARGET"
+done
+```
+
+Hand each dispatched agent its own `cwd: .worktrees/<slug>-<stream>` in the
+briefing. Agents commit freely on their own branches — no lock contention.
+
+### Integration — after all streams finish
+
+Once every parallel agent has returned successfully, the orchestrator (or a
+dedicated integration agent) merges each stream branch back into `$TARGET`
+in a controlled sequence:
+
+```bash
+cd ".worktrees/$SLUG"
+for STREAM in stream-a stream-b stream-c; do
+  git merge --no-ff "$TARGET-$STREAM"   # or: cherry-pick its range
+done
+```
+
+Prefer `--no-ff` merges so each stream's commits stay recognizable in the
+log (the commit-message prefix `[stream-A]` etc. is still useful even with
+merge commits). If a merge conflicts, the orchestrator investigates — that
+usually means the independence check in the plan was wrong, and is a signal
+to stop and re-plan rather than paper over it.
+
+After successful integration, clean up the per-stream worktrees (the
+integration worktree stays until the final handoff):
+
+```bash
+for STREAM in stream-a stream-b stream-c; do
+  git worktree remove ".worktrees/$SLUG-$STREAM"
+done
+```
 
 If two supposedly-independent agents both edit the same file, that's a plan
 bug — surface it to the user after the phase and consider whether to re-plan.

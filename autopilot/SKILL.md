@@ -60,7 +60,7 @@ Skip the confirmation prompt only if the user explicitly said "don't stop to con
 
 ### Phase 2 — Implement
 
-Set up isolation: either use the `Agent` tool with `isolation: "worktree"` (the tool creates and cleans up a temporary worktree automatically), or create one manually via `git worktree add` when you need multiple parallel agents to share the same branch. Full manual-setup procedure: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`. Main branch never gets touched directly.
+Set up isolation: either use the `Agent` tool with `isolation: "worktree"` (the tool creates and cleans up a temporary worktree automatically), or create one manually via `git worktree add` when you need more control — in particular when the plan lists parallel workstreams. Main branch never gets touched directly. Full manual-setup procedure: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`.
 
 Dispatch an **implementation agent** (`subagent_type: general-purpose`) with:
 - The approved plan (verbatim)
@@ -68,7 +68,7 @@ Dispatch an **implementation agent** (`subagent_type: general-purpose`) with:
 - Explicit instruction to follow the plan, write tests per the plan's test strategy, and run the project's test command before declaring done
 - A request for a concise final summary (under 300 words): what files changed, what tests were added/modified, any plan deviations with reasons
 
-If the plan flagged independent workstreams, dispatch them in parallel — one subagent per workstream, single message with multiple `Agent` tool calls. Each subagent gets its slice of the plan plus shared context (types, conventions).
+If the plan flagged independent workstreams, dispatch them in parallel — one subagent per workstream, single message with multiple `Agent` tool calls, **each agent gets its own worktree on its own stream branch** (sharing a worktree across concurrent agents causes `.git/index.lock` contention). The orchestrator merges stream branches back into the integration branch once all streams finish.
 
 Full briefing rules and parallelization heuristics: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`.
 
@@ -79,13 +79,13 @@ Dispatch a **review agent** (`subagent_type: general-purpose`). Brief it with:
 - The plan
 - The diff against the base branch
 - Instruction to find bugs, logic errors, test gaps, security issues, and plan deviations
-- A request for findings categorized by severity: `blocking` / `should-fix` / `nit`, with file:line citations
+- A request for findings categorized by severity: `BLOCKING` / `SHOULD-FIX` / `NIT`, with file:line citations
 
 Collect the findings. **Decision tree**:
 
-- **No `blocking` or `should-fix` findings** — pipeline done. Summarize and hand off.
-- **Some `blocking` or `should-fix` findings, iteration count < 2** — dispatch a **fix agent** (`general-purpose`) with the findings and the existing diff context. After the fix agent returns, re-run the review agent on the updated diff. Cap at 2 fix iterations.
-- **Iteration cap hit with findings remaining** — stop. Surface remaining findings to the user with a clear "pipeline hit the 2-round fix cap" note. Don't iterate further without explicit go-ahead.
+- **No `BLOCKING` or `SHOULD-FIX` findings** — pipeline done. Summarize and hand off.
+- **Some `BLOCKING` or `SHOULD-FIX` findings, iteration count < 2** — dispatch a **fix agent** (`general-purpose`) with the findings and the existing diff context. After the fix agent returns, re-run the review agent on the updated diff. Cap at 2 fix iterations.
+- **Iteration cap hit with `BLOCKING` or `SHOULD-FIX` findings remaining** — stop. Surface remaining findings to the user with a clear "pipeline hit the 2-round fix cap" note. Don't iterate further without explicit go-ahead.
 
 Full briefing rules and the severity scale: `~/.claude/skills/my-skills/autopilot/references/review-phase.md`.
 
