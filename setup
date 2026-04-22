@@ -10,7 +10,11 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$(dirname "$REPO_DIR")"
 SETTINGS="$HOME/.claude/settings.json"
+CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 HOOK_CMD="$REPO_DIR/bin/my-skills-update-check"
+BLOCK_BEGIN="<!-- BEGIN my-skills -->"
+BLOCK_END="<!-- END my-skills -->"
+REPO_URL="https://github.com/hiboute/my-skills.git"
 
 UNINSTALL=0
 [ "${1:-}" = "--uninstall" ] && UNINSTALL=1
@@ -101,6 +105,57 @@ remove_hook() {
   echo "hook: removed SessionStart entry for my-skills"
 }
 
+# ─── CLAUDE.md block (advertise skills + install/update commands) ───
+render_block() {
+  printf '%s\n' "$BLOCK_BEGIN"
+  echo "Available my-skills skills:"
+  echo
+  for name in $(discover_skills); do
+    echo "/$name"
+  done
+  echo
+  echo "Install with: git clone $REPO_URL ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup"
+  echo "Update with:  ~/.claude/skills/my-skills/bin/my-skills-upgrade"
+  printf '%s\n' "$BLOCK_END"
+}
+
+install_claude_md() {
+  mkdir -p "$(dirname "$CLAUDE_MD")"
+  [ -f "$CLAUDE_MD" ] || : > "$CLAUDE_MD"
+
+  local tmp
+  tmp="$(mktemp)"
+  # Strip any existing block (from start marker to end marker), collapsing
+  # trailing blank lines that result from the removal.
+  awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '
+    $0 == b { skip = 1; next }
+    skip && $0 == e { skip = 0; next }
+    !skip { print }
+  ' "$CLAUDE_MD" > "$tmp"
+
+  # Trim trailing blank lines, then add one blank line before the block.
+  if [ -s "$tmp" ]; then
+    sed -e :a -e '/^$/{$d;N;ba' -e '}' "$tmp" > "${tmp}.2" && mv "${tmp}.2" "$tmp"
+    printf '\n' >> "$tmp"
+  fi
+  render_block >> "$tmp"
+  mv "$tmp" "$CLAUDE_MD"
+  echo "claude.md: block written to $CLAUDE_MD"
+}
+
+remove_claude_md() {
+  [ -f "$CLAUDE_MD" ] || return 0
+  local tmp
+  tmp="$(mktemp)"
+  awk -v b="$BLOCK_BEGIN" -v e="$BLOCK_END" '
+    $0 == b { skip = 1; next }
+    skip && $0 == e { skip = 0; next }
+    !skip { print }
+  ' "$CLAUDE_MD" > "$tmp"
+  mv "$tmp" "$CLAUDE_MD"
+  echo "claude.md: removed my-skills block"
+}
+
 # ─── Mark scripts executable ────────────────────────────────────────
 chmod_bin() {
   for f in "$REPO_DIR"/bin/*; do
@@ -112,10 +167,12 @@ chmod_bin() {
 if [ "$UNINSTALL" -eq 1 ]; then
   unlink_skills
   remove_hook
+  remove_claude_md
   echo "uninstall complete (repo and ~/.my-skills/ left intact)"
 else
   chmod_bin
   link_skills
   install_hook
+  install_claude_md
   echo "setup complete"
 fi

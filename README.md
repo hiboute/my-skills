@@ -18,14 +18,19 @@ git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills
 ~/.claude/skills/my-skills/setup
 ```
 
-`setup` does three things:
+`setup` does four things:
 1. Creates symlinks `~/.claude/skills/<skill>` → `~/.claude/skills/my-skills/<skill>`
    for every skill folder in this repo.
 2. Marks scripts in `bin/` executable.
 3. Installs a `SessionStart` hook in `~/.claude/settings.json` that silently checks
    for new versions on each Claude Code session start.
+4. Writes a marker-delimited block to `~/.claude/CLAUDE.md` listing the installed
+   skills and the install/update commands, so Claude knows they exist. The block
+   is regenerated on every run; any content outside the `<!-- BEGIN/END my-skills -->`
+   markers is preserved.
 
-Re-run `setup` any time to repair links or pick up newly added skills.
+Re-run `setup` any time to repair links, refresh the CLAUDE.md block, or pick up
+newly added skills.
 
 ## Update
 
@@ -62,8 +67,8 @@ check stops.
 ~/.claude/skills/my-skills/setup --uninstall
 ```
 
-Removes symlinks and the hook entry. Leaves the repo dir and `~/.my-skills/` alone
-in case you want to reinstall.
+Removes symlinks, the hook entry, and the CLAUDE.md block. Leaves the repo dir
+and `~/.my-skills/` alone in case you want to reinstall.
 
 ## License
 
