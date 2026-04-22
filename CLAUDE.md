@@ -11,11 +11,11 @@ The installed block looks like this:
 <!-- BEGIN my-skills -->
 Available my-skills skills:
 
-/ideation
-/roadmap
+'/ideation'
+'/roadmap'
 
-Install with: git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup
-Update with:  ~/.claude/skills/my-skills/bin/my-skills-upgrade
+Install with: 'git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup'
+Update with:  '~/.claude/skills/my-skills/bin/my-skills-upgrade'
 <!-- END my-skills -->
 ```
 
