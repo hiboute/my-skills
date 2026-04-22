@@ -1,3 +1,5 @@
+#Hiboute skills
+
 Available hiboute skills:
 
 '/ideation'
