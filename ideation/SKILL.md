@@ -13,12 +13,12 @@ Pick the mode that matches the user's intent. If they don't specify, ask which o
 
 | Mode | Focuses on | Load |
 |---|---|---|
-| `security` | OWASP-style vulnerabilities, secrets, unsafe inputs | `~/.claude/skills/my-skills/ideation/categories/security.md` |
-| `performance` | Bundle size, runtime, memory, DB, network, rendering, caching | `~/.claude/skills/my-skills/ideation/categories/performance.md` |
-| `documentation` | README, API docs, inline comments, examples, architecture, troubleshooting | `~/.claude/skills/my-skills/ideation/categories/documentation.md` |
-| `code-quality` | Large files, code smells, complexity, duplication, naming, structure, linting, tests, types, dead code | `~/.claude/skills/my-skills/ideation/categories/code-quality.md` |
-| `code-improvements` | Code-revealed feature opportunities extending existing patterns | `~/.claude/skills/my-skills/ideation/categories/code-improvements.md` |
-| `ui-ux` | Usability, accessibility, perceived performance, visual polish, interactions | `~/.claude/skills/my-skills/ideation/categories/ui-ux.md` |
+| `security` | OWASP-style vulnerabilities, secrets, unsafe inputs | `~/.claude/skills/hiboute-skills/ideation/categories/security.md` |
+| `performance` | Bundle size, runtime, memory, DB, network, rendering, caching | `~/.claude/skills/hiboute-skills/ideation/categories/performance.md` |
+| `documentation` | README, API docs, inline comments, examples, architecture, troubleshooting | `~/.claude/skills/hiboute-skills/ideation/categories/documentation.md` |
+| `code-quality` | Large files, code smells, complexity, duplication, naming, structure, linting, tests, types, dead code | `~/.claude/skills/hiboute-skills/ideation/categories/code-quality.md` |
+| `code-improvements` | Code-revealed feature opportunities extending existing patterns | `~/.claude/skills/hiboute-skills/ideation/categories/code-improvements.md` |
+| `ui-ux` | Usability, accessibility, perceived performance, visual polish, interactions | `~/.claude/skills/hiboute-skills/ideation/categories/ui-ux.md` |
 
 Each mode has its own analysis methodology, severity/impact scale, and issue template. Load only the mode the user picked — don't preload all six.
 
@@ -50,11 +50,11 @@ Confirm the target + mode once, then proceed autonomously.
 
 ## Pipeline
 
-1. **Load the mode file** (`~/.claude/skills/my-skills/ideation/categories/<mode>.md`). It contains the specific analysis steps, severity scale, and issue-body template for that mode.
+1. **Load the mode file** (`~/.claude/skills/hiboute-skills/ideation/categories/<mode>.md`). It contains the specific analysis steps, severity scale, and issue-body template for that mode.
 2. **Analyze the codebase.** Read files, run searches, look at dependencies. Follow the methodology in the mode file.
 3. **Shortlist findings.** Aim for the 3–7 most impactful, non-duplicate, actionable issues. If you find 20 candidates, pick the 5 best — don't dump everything.
 4. **Check existing issues.** For each finding, scan open issues in the repo. If something similar is already tracked, skip the finding or note it as a duplicate in the summary.
-5. **Publish.** Load `~/.claude/skills/my-skills/ideation/references/github-mapping.md` and create one GitHub issue per finding, with the labels and body format from the mode file.
+5. **Publish.** Load `~/.claude/skills/hiboute-skills/ideation/references/github-mapping.md` and create one GitHub issue per finding, with the labels and body format from the mode file.
 6. **Summarize.** Print a Markdown summary back to the user with a link to each created issue.
 
 ## Operating rules
@@ -89,4 +89,4 @@ Before reading the full mode file, remember:
 - **code-improvements** uses `effort: trivial | small | medium | large | complex` — this is the one mode that finds *features* the code reveals, not defects
 - **ui-ux** uses five categories (usability, accessibility, performance, visual, interaction) and is the only mode that benefits from running the app in a browser (optional)
 
-For full rules, templates, and GitHub label schemas, load `~/.claude/skills/my-skills/ideation/references/github-mapping.md` alongside the mode file.
+For full rules, templates, and GitHub label schemas, load `~/.claude/skills/hiboute-skills/ideation/references/github-mapping.md` alongside the mode file.

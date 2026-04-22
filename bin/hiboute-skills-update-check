@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# my-skills-update-check — silent periodic version check.
+# hiboute-skills-update-check — silent periodic version check.
 #
 # Reads stdin (Claude Code SessionStart hook payload) and discards it; we only
 # care that this fires on session start. Output to stdout is shown to the user
@@ -12,21 +12,21 @@
 #     so the user sees a hint next session, and prints one info line.
 #
 # Env overrides:
-#   MY_SKILLS_DIR        — override repo path
-#   MY_SKILLS_REMOTE_URL — override remote VERSION URL
-#   MY_SKILLS_STATE_DIR  — override ~/.my-skills
+#   HIBOUTE_SKILLS_DIR        — override repo path
+#   HIBOUTE_SKILLS_REMOTE_URL — override remote VERSION URL
+#   HIBOUTE_SKILLS_STATE_DIR  — override ~/.hiboute-skills
 set -eu
 
 # Drain any hook payload on stdin so the producer doesn't block.
 [ -t 0 ] || cat >/dev/null 2>&1 || true
 
-REPO_DIR="${MY_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${MY_SKILLS_STATE_DIR:-$HOME/.my-skills}"
+REPO_DIR="${HIBOUTE_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${HIBOUTE_SKILLS_STATE_DIR:-$HOME/.hiboute-skills}"
 CACHE_FILE="$STATE_DIR/last-update-check"
 MARKER_FILE="$STATE_DIR/just-upgraded-from"
 SNOOZE_FILE="$STATE_DIR/update-snoozed"
 VERSION_FILE="$REPO_DIR/VERSION"
-REMOTE_URL="${MY_SKILLS_REMOTE_URL:-https://raw.githubusercontent.com/hiboute/my-skills/main/VERSION}"
+REMOTE_URL="${HIBOUTE_SKILLS_REMOTE_URL:-https://raw.githubusercontent.com/hiboute/skills/main/VERSION}"
 
 mkdir -p "$STATE_DIR"
 
@@ -74,9 +74,9 @@ local_version="$(head -n1 "$VERSION_FILE" | tr -d '[:space:]')"
 [ "$remote_version" != "$local_version" ] || exit 0
 is_snoozed "$remote_version" && exit 0
 
-# Write marker (consumed by my-skills-upgrade or surfaced manually).
+# Write marker (consumed by hiboute-skills-upgrade or surfaced manually).
 printf '%s\n' "$local_version" > "$MARKER_FILE"
 
 # Single line of context. Hooks producing JSON to stdout would be parsed by
 # Claude Code; plain text is shown verbatim in some hosts and ignored in others.
-echo "[my-skills] update available: $local_version → $remote_version (run: my-skills-upgrade)"
+echo "[hiboute-skills] update available: $local_version → $remote_version (run: hiboute-skills-upgrade)"

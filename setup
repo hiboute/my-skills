@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# my-skills setup — symlink skills into ~/.claude/skills and install the
+# hiboute-skills setup — symlink skills into ~/.claude/skills and install the
 # SessionStart auto-update hook.
 #
 # Usage:
@@ -12,11 +12,10 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="$(dirname "$REPO_DIR")"
 SETTINGS="$HOME/.claude/settings.json"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
-HOOK_CMD="$REPO_DIR/bin/my-skills-session-update"
-LEGACY_HOOK_CMD="$REPO_DIR/bin/my-skills-update-check"
-BLOCK_BEGIN="<!-- BEGIN my-skills -->"
-BLOCK_END="<!-- END my-skills -->"
-REPO_URL="https://github.com/hiboute/my-skills.git"
+HOOK_CMD="$REPO_DIR/bin/hiboute-skills-session-update"
+BLOCK_BEGIN="<!-- BEGIN hiboute-skills -->"
+BLOCK_END="<!-- END hiboute-skills -->"
+REPO_URL="https://github.com/hiboute/skills.git"
 
 UNINSTALL=0
 QUIET=0
@@ -46,7 +45,7 @@ discover_skills() {
 
 # Gstack-style link: create a real directory at $SKILLS_DIR/<skill_name>/ with
 # a SKILL.md symlink inside pointing at the repo. Claude discovers the skill at
-# the top level of ~/.claude/skills/ rather than nested under my-skills/.
+# the top level of ~/.claude/skills/ rather than nested under hiboute-skills/.
 # Sibling files (categories/, references/) are addressed via absolute paths
 # inside SKILL.md — no sidecar symlinks needed.
 link_skills() {
@@ -54,7 +53,7 @@ link_skills() {
     target="$SKILLS_DIR/$skill_name"
     src_skill_md="$REPO_DIR/$dir_name/SKILL.md"
 
-    # Migrate legacy whole-directory symlinks (old my-skills pattern).
+    # Migrate legacy whole-directory symlinks (old hiboute-skills pattern).
     if [ -L "$target" ]; then
       rm "$target"
       log "migrate: removed legacy symlink at $target"
@@ -67,7 +66,7 @@ link_skills() {
       case "$existing_link" in
         "$REPO_DIR"/*) : ;;  # ours, safe to update
         "")
-          echo "skip: $target exists and is not managed by my-skills" >&2
+          echo "skip: $target exists and is not managed by hiboute-skills" >&2
           continue
           ;;
       esac
@@ -127,12 +126,10 @@ install_hook() {
   [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
   settings_backup
 
-  # 1. Drop any legacy entry pointing at the old update-check command.
-  # 2. Append our new entry only if not already present.
-  jq --arg cmd "$HOOK_CMD" --arg legacy "$LEGACY_HOOK_CMD" '
+  # Append our entry only if not already present.
+  jq --arg cmd "$HOOK_CMD" '
     .hooks //= {}
     | .hooks.SessionStart //= []
-    | .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $legacy)))
     | if any(.hooks.SessionStart[]?; .hooks[]?.command == $cmd) then .
       else .hooks.SessionStart += [{
         "matcher": ".*",
@@ -146,23 +143,23 @@ remove_hook() {
   ensure_jq
   [ -f "$SETTINGS" ] || return 0
   settings_backup
-  jq --arg cmd "$HOOK_CMD" --arg legacy "$LEGACY_HOOK_CMD" '
+  jq --arg cmd "$HOOK_CMD" '
     if .hooks.SessionStart? then
-      .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $cmd and .command != $legacy)))
+      .hooks.SessionStart |= map(select(all(.hooks[]?; .command != $cmd)))
     else . end
   ' "$SETTINGS" > "${SETTINGS}.tmp" && mv "${SETTINGS}.tmp" "$SETTINGS"
-  log "hook: removed SessionStart entry for my-skills"
+  log "hook: removed SessionStart entry for hiboute-skills"
 }
 
 # ─── CLAUDE.md block (advertise skills + install/update commands) ───
 render_block() {
   printf '%s\n' "$BLOCK_BEGIN"
-  echo "Available my-skills skills:"
+  echo "Available hiboute-skills skills:"
   echo
   discover_skills | awk '{print "/" $2}'
   echo
-  echo "Install with: git clone $REPO_URL ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup"
-  echo "Update with:  ~/.claude/skills/my-skills/bin/my-skills-upgrade"
+  echo "Install with: git clone $REPO_URL ~/.claude/skills/hiboute-skills && ~/.claude/skills/hiboute-skills/setup"
+  echo "Update with:  ~/.claude/skills/hiboute-skills/bin/hiboute-skills-upgrade"
   printf '%s\n' "$BLOCK_END"
 }
 
@@ -200,7 +197,7 @@ remove_claude_md() {
     !skip { print }
   ' "$CLAUDE_MD" > "$tmp"
   mv "$tmp" "$CLAUDE_MD"
-  log "claude.md: removed my-skills block"
+  log "claude.md: removed hiboute-skills block"
 }
 
 # ─── Mark scripts executable ────────────────────────────────────────
@@ -215,7 +212,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
   unlink_skills
   remove_hook
   remove_claude_md
-  log "uninstall complete (repo and ~/.my-skills/ left intact)"
+  log "uninstall complete (repo and ~/.hiboute-skills/ left intact)"
 else
   chmod_bin
   link_skills

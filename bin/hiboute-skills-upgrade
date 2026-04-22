@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# my-skills-upgrade — pull latest changes and relink skills.
+# hiboute-skills-upgrade — pull latest changes and relink skills.
 set -euo pipefail
 
-REPO_DIR="${MY_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${MY_SKILLS_STATE_DIR:-$HOME/.my-skills}"
+REPO_DIR="${HIBOUTE_SKILLS_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+STATE_DIR="${HIBOUTE_SKILLS_STATE_DIR:-$HOME/.hiboute-skills}"
 MARKER_FILE="$STATE_DIR/just-upgraded-from"
 
 cd "$REPO_DIR"

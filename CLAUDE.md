@@ -6,6 +6,6 @@ Available hiboute skills:
 - '/roadmap'
 - '/autopilot'
 
-Install with: 'git clone https://github.com/hiboute/my-skills.git ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup'
+Install with: 'git clone https://github.com/hiboute/skills.git ~/.claude/skills/hiboute-skills && ~/.claude/skills/hiboute-skills/setup'
 
-Update with:  '~/.claude/skills/my-skills/bin/my-skills-upgrade'
+Update with:  '~/.claude/skills/hiboute-skills/bin/hiboute-skills-upgrade'

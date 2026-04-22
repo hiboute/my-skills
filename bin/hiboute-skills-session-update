@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# my-skills-session-update — auto-update my-skills on session start.
+# hiboute-skills-session-update — auto-update hiboute-skills on session start.
 #
 # Registered as a Claude Code SessionStart hook by ./setup. Must be fast,
 # silent, and non-fatal — the hook exits immediately while the actual
@@ -11,8 +11,8 @@
 
 set +e
 
-REPO_DIR="${MY_SKILLS_DIR:-$HOME/.claude/skills/my-skills}"
-STATE_DIR="${MY_SKILLS_STATE_DIR:-$HOME/.my-skills}"
+REPO_DIR="${HIBOUTE_SKILLS_DIR:-$HOME/.claude/skills/hiboute-skills}"
+STATE_DIR="${HIBOUTE_SKILLS_STATE_DIR:-$HOME/.hiboute-skills}"
 THROTTLE_FILE="$STATE_DIR/last-session-update"
 LOCK_DIR="$STATE_DIR/.setup-lock"
 LOG_FILE="$STATE_DIR/analytics/session-update.log"
@@ -26,7 +26,7 @@ log_entry() {
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >> "$LOG_FILE" 2>/dev/null || true
 }
 
-# ── Guard: my-skills must be a git repo ──
+# ── Guard: hiboute-skills must be a git repo ──
 if [ ! -d "$REPO_DIR/.git" ]; then
   exit 0
 fi

@@ -52,7 +52,7 @@ Dispatch a **planning agent** with `subagent_type: Plan` (or `general-purpose` i
 - Independent workstreams that can be parallelized in Phase 2, if any
 - Risks / unknowns
 
-Full briefing rules and the plan contract: `~/.claude/skills/my-skills/autopilot/references/plan-phase.md`.
+Full briefing rules and the plan contract: `~/.claude/skills/hiboute-skills/autopilot/references/plan-phase.md`.
 
 Print the plan back to the user and **ask for confirmation before Phase 2**. The user may edit the plan, drop scope, or request changes. If they do, re-dispatch the planning agent with their feedback.
 
@@ -60,7 +60,7 @@ Skip the confirmation prompt only if the user explicitly said "don't stop to con
 
 ### Phase 2 — Implement
 
-Set up isolation: either use the `Agent` tool with `isolation: "worktree"` (the tool creates and cleans up a temporary worktree automatically), or create one manually via `git worktree add` when you need multiple parallel agents to share the same branch. Full manual-setup procedure: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`. Main branch never gets touched directly.
+Set up isolation: either use the `Agent` tool with `isolation: "worktree"` (the tool creates and cleans up a temporary worktree automatically), or create one manually via `git worktree add` when you need multiple parallel agents to share the same branch. Full manual-setup procedure: `~/.claude/skills/hiboute-skills/autopilot/references/implement-phase.md`. Main branch never gets touched directly.
 
 Dispatch an **implementation agent** (`subagent_type: general-purpose`) with:
 - The approved plan (verbatim)
@@ -70,7 +70,7 @@ Dispatch an **implementation agent** (`subagent_type: general-purpose`) with:
 
 If the plan flagged independent workstreams, dispatch them in parallel — one subagent per workstream, single message with multiple `Agent` tool calls. Each subagent gets its slice of the plan plus shared context (types, conventions).
 
-Full briefing rules and parallelization heuristics: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`.
+Full briefing rules and parallelization heuristics: `~/.claude/skills/hiboute-skills/autopilot/references/implement-phase.md`.
 
 ### Phase 3 — AI review (with bounded fix loop)
 
@@ -87,13 +87,13 @@ Collect the findings. **Decision tree**:
 - **Some `blocking` or `should-fix` findings, iteration count < 2** — dispatch a **fix agent** (`general-purpose`) with the findings and the existing diff context. After the fix agent returns, re-run the review agent on the updated diff. Cap at 2 fix iterations.
 - **Iteration cap hit with findings remaining** — stop. Surface remaining findings to the user with a clear "pipeline hit the 2-round fix cap" note. Don't iterate further without explicit go-ahead.
 
-Full briefing rules and the severity scale: `~/.claude/skills/my-skills/autopilot/references/review-phase.md`.
+Full briefing rules and the severity scale: `~/.claude/skills/hiboute-skills/autopilot/references/review-phase.md`.
 
 ## Operating rules
 
 1. **Orchestrator-first.** You coordinate; agents execute. Don't read files or write code yourself during phases 2–3 unless an agent explicitly failed — delegation keeps the main context clean.
 2. **Fresh context per phase.** Each phase agent gets only the inputs it needs. Don't forward the previous agent's full transcript — forward its summary plus the plan/ask.
-3. **Worktree isolation on implementation.** Never implement against the main working tree. Use `isolation: "worktree"` on the implementation agent, or create one manually with `git worktree add <path> -b autopilot/<slug>` before dispatching (see `~/.claude/skills/my-skills/autopilot/references/implement-phase.md` for the full safety procedure).
+3. **Worktree isolation on implementation.** Never implement against the main working tree. Use `isolation: "worktree"` on the implementation agent, or create one manually with `git worktree add <path> -b autopilot/<slug>` before dispatching (see `~/.claude/skills/hiboute-skills/autopilot/references/implement-phase.md` for the full safety procedure).
 4. **One confirmation gate.** After Phase 1. Not before or after other phases. The whole point of the skill is autonomy — gating at every step defeats it.
 5. **Bounded fix loop.** At most 2 fix rounds before surfacing to the user. Infinite iteration hides real problems.
 6. **Parallel only when independent.** If workstreams share files or depend on each other's types/APIs, run them sequentially. Spurious parallelism produces merge conflicts and context drift.
