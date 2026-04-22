@@ -30,43 +30,80 @@ done
 log() { [ "$QUIET" -eq 1 ] || echo "$@"; }
 
 # ─── Discover skills (every dir at repo root with a SKILL.md) ────────
+# Emits one "<dir_name> <skill_name>" line per skill. skill_name comes from the
+# SKILL.md `name:` frontmatter field, with the directory name as fallback.
+# Matches gstack's link_claude_skill_dirs behavior.
 discover_skills() {
   for d in "$REPO_DIR"/*/; do
-    name="$(basename "$d")"
+    dir_name="$(basename "$d")"
     [ -f "$d/SKILL.md" ] || continue
-    echo "$name"
+    skill_name=$(grep -m1 '^name:' "$d/SKILL.md" 2>/dev/null \
+      | sed 's/^name:[[:space:]]*//' | tr -d '[:space:]')
+    [ -z "$skill_name" ] && skill_name="$dir_name"
+    echo "$dir_name $skill_name"
   done
 }
 
+# Gstack-style link: create a real directory at $SKILLS_DIR/<skill_name>/ with
+# a SKILL.md symlink inside pointing at the repo. Claude discovers the skill at
+# the top level of ~/.claude/skills/ rather than nested under my-skills/.
+# Sibling files (categories/, references/) are addressed via absolute paths
+# inside SKILL.md — no sidecar symlinks needed.
 link_skills() {
-  for name in $(discover_skills); do
-    target="$SKILLS_DIR/$name"
-    src="$REPO_DIR/$name"
-    # Skip if a non-symlink dir with the same name already exists
-    if [ -e "$target" ] && [ ! -L "$target" ]; then
-      echo "skip: $target exists and is not a symlink" >&2
+  discover_skills | while read -r dir_name skill_name; do
+    target="$SKILLS_DIR/$skill_name"
+    src_skill_md="$REPO_DIR/$dir_name/SKILL.md"
+
+    # Migrate legacy whole-directory symlinks (old my-skills pattern).
+    if [ -L "$target" ]; then
+      rm "$target"
+      log "migrate: removed legacy symlink at $target"
+    fi
+
+    # If target already exists as a real dir, verify it's ours before touching.
+    # A dir we own has SKILL.md as a symlink pointing into this repo.
+    if [ -d "$target" ] && [ ! -L "$target" ]; then
+      existing_link="$(readlink "$target/SKILL.md" 2>/dev/null || true)"
+      case "$existing_link" in
+        "$REPO_DIR"/*) : ;;  # ours, safe to update
+        "")
+          echo "skip: $target exists and is not managed by my-skills" >&2
+          continue
+          ;;
+      esac
+    fi
+
+    mkdir -p "$target"
+    # Replace SKILL.md symlink idempotently (avoid ln -snf on a regular file).
+    [ -L "$target/SKILL.md" ] && rm "$target/SKILL.md"
+    ln -s "$src_skill_md" "$target/SKILL.md"
+    log "link: $skill_name -> $src_skill_md"
+  done
+}
+
+# Remove directories we own: a real dir whose only managed content is a
+# SKILL.md symlink pointing into this repo. Leave everything else alone.
+unlink_skills() {
+  discover_skills | while read -r dir_name skill_name; do
+    target="$SKILLS_DIR/$skill_name"
+
+    # Legacy whole-dir symlink from an older install.
+    if [ -L "$target" ] && [ "$(readlink "$target")" = "$REPO_DIR/$dir_name" ]; then
+      rm "$target"
+      log "rm:   $skill_name (legacy symlink)"
       continue
     fi
-    # Replace stale symlinks
-    if [ -L "$target" ]; then
-      current="$(readlink "$target")"
-      if [ "$current" = "$src" ]; then
-        log "ok:   $name (already linked)"
-        continue
-      fi
-      rm "$target"
-    fi
-    ln -s "$src" "$target"
-    log "link: $name -> $src"
-  done
-}
 
-unlink_skills() {
-  for name in $(discover_skills); do
-    target="$SKILLS_DIR/$name"
-    if [ -L "$target" ] && [ "$(readlink "$target")" = "$REPO_DIR/$name" ]; then
-      rm "$target"
-      log "rm:   $name"
+    # Real dir owned by us: SKILL.md is a symlink into this repo.
+    if [ -d "$target" ] && [ ! -L "$target" ]; then
+      existing_link="$(readlink "$target/SKILL.md" 2>/dev/null || true)"
+      case "$existing_link" in
+        "$REPO_DIR"/*)
+          rm -f "$target/SKILL.md"
+          rmdir "$target" 2>/dev/null && log "rm:   $skill_name" \
+            || log "skip: $target has extra files, leaving in place"
+          ;;
+      esac
     fi
   done
 }
@@ -122,9 +159,7 @@ render_block() {
   printf '%s\n' "$BLOCK_BEGIN"
   echo "Available my-skills skills:"
   echo
-  for name in $(discover_skills); do
-    echo "/$name"
-  done
+  discover_skills | awk '{print "/" $2}'
   echo
   echo "Install with: git clone $REPO_URL ~/.claude/skills/my-skills && ~/.claude/skills/my-skills/setup"
   echo "Update with:  ~/.claude/skills/my-skills/bin/my-skills-upgrade"

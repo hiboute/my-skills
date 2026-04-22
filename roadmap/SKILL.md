@@ -10,7 +10,7 @@ Analyze a codebase, infer its audience and vision, then generate a MoSCoW-priori
 The skill runs in one of two **modes**, chosen automatically:
 
 - **Greenfield** — no existing roadmap project for this repo. Creates the project, fills it with 5–10 features across 3–4 phases, all tagged as `Sprint 1`.
-- **Incremental** — a `<Repo name> Roadmap` project already exists. Reads the current board state (done/in-progress/open counts, per-phase completion), then generates **3–7 new features** as the next sprint (`Sprint N+1`). New features usually reuse the existing phases, but the skill **can open a new phase** (`Phase N+1 — <Theme>`) when the batch genuinely belongs to a new strategic theme — see the trigger rules in `references/github-mapping.md`. Existing items are left alone. The skill is safe to re-run: each run adds one sprint on top of whatever's there, and optionally a new phase.
+- **Incremental** — a `<Repo name> Roadmap` project already exists. Reads the current board state (done/in-progress/open counts, per-phase completion), then generates **3–7 new features** as the next sprint (`Sprint N+1`). New features usually reuse the existing phases, but the skill **can open a new phase** (`Phase N+1 — <Theme>`) when the batch genuinely belongs to a new strategic theme — see the trigger rules in `~/.claude/skills/my-skills/roadmap/references/github-mapping.md`. Existing items are left alone. The skill is safe to re-run: each run adds one sprint on top of whatever's there, and optionally a new phase.
 
 ## When to use
 
@@ -59,18 +59,18 @@ Infer, in order:
 6. **Competitive context** — alternatives, differentiators, market position
 7. **Constraints** — technical, resources, dependencies
 
-For the detailed methodology and what to look for at each step, load `references/discovery.md`.
+For the detailed methodology and what to look for at each step, load `~/.claude/skills/my-skills/roadmap/references/discovery.md`.
 
 **Hold the discovery object in memory** — you don't need to write it to disk. It's the input to Phase 2.
 
 ### Phase 2 — Features + Publishing
 
-First, **detect the mode**. Try to find an existing `<Repo name> Roadmap` project for the owner. If one exists, you're in incremental mode — see `references/github-mapping.md` → "State analysis (incremental mode)" to read the current board before brainstorming. That analysis becomes extra input alongside the discovery object.
+First, **detect the mode**. Try to find an existing `<Repo name> Roadmap` project for the owner. If one exists, you're in incremental mode — see `~/.claude/skills/my-skills/roadmap/references/github-mapping.md` → "State analysis (incremental mode)" to read the current board before brainstorming. That analysis becomes extra input alongside the discovery object.
 
 Then generate features. The target count depends on mode:
 
 - **Greenfield** — generate **5–10 features** organized into **3–4 phases**, all tagged for `Sprint 1`.
-- **Incremental** — generate **3–7 new features** as the next sprint (`Sprint N+1`). Default to reusing existing phases; opening a new phase (`Phase N+1`) is allowed only when the trigger rules in `references/github-mapping.md` §2.5.4 are met (explicit user ask, or a coherent new theme with ≥2 features when earlier phases are mostly Done). Do **not** re-file features that already exist as open items on the board.
+- **Incremental** — generate **3–7 new features** as the next sprint (`Sprint N+1`). Default to reusing existing phases; opening a new phase (`Phase N+1`) is allowed only when the trigger rules in `~/.claude/skills/my-skills/roadmap/references/github-mapping.md` §2.5.4 are met (explicit user ask, or a coherent new theme with ≥2 features when earlier phases are mostly Done). Do **not** re-file features that already exist as open items on the board.
 
 For each feature, produce:
 - `title` — short, action-oriented
@@ -83,7 +83,7 @@ For each feature, produce:
 - `user_stories` — "As a <persona>, I want to <action> so that <benefit>"
 - `dependencies` — feature titles this one needs first (can reference existing open issues on the board)
 
-Organize features into phases in this shape (greenfield creates the full structure; incremental mode reuses existing phases and may add a new one — see `references/github-mapping.md` for the trigger rules):
+Organize features into phases in this shape (greenfield creates the full structure; incremental mode reuses existing phases and may add a new one — see `~/.claude/skills/my-skills/roadmap/references/github-mapping.md` for the trigger rules):
 - **Phase 1 — Foundation / MVP** — must-haves, quick wins
 - **Phase 2 — Enhancement** — should-haves, UX improvements
 - **Phase 3 — Scale / Growth** — could-haves, advanced features
@@ -95,16 +95,16 @@ Prioritization rules:
 - Nice-to-have + low complexity → `could` / Phase 2–3 (fill-ins)
 - Nice-to-have + high complexity → `wont` or Phase 4 (avoid)
 
-For the prioritization framework and feature-brainstorming prompts, load `references/features.md`.
+For the prioritization framework and feature-brainstorming prompts, load `~/.claude/skills/my-skills/roadmap/references/features.md`.
 
-**Then publish to a GitHub Project.** The mapping between roadmap structures and GitHub artifacts (project creation, custom fields to create, labels, issue body template, dependency links) is in `references/github-mapping.md` — load it before you start creating anything.
+**Then publish to a GitHub Project.** The mapping between roadmap structures and GitHub artifacts (project creation, custom fields to create, labels, issue body template, dependency links) is in `~/.claude/skills/my-skills/roadmap/references/github-mapping.md` — load it before you start creating anything.
 
 ## Operating rules
 
 1. **Non-interactive by default.** Don't ask the user to fill gaps in discovery — infer them. The only things you may confirm are the target repo and the project owner. The user may also steer an incremental run ("focus this sprint on performance") — honor that as a bias during feature generation.
 2. **Mode is decided automatically.** Existing `<Repo name> Roadmap` project → incremental. No project → greenfield. Don't ask which mode to run in.
 3. **Idempotent project setup.** If a project with the intended title already exists for the owner, reuse it rather than creating a duplicate. Same for custom fields and single-select options — list before creating, treat "already exists" as success.
-4. **Existing items are read-only.** In incremental mode, never edit fields on existing items, never re-file their issues, never change their sprint or phase tag. Adding new **options** to the Phase or Sprint single-select fields is allowed (and is how sprints/phases extend) — that's a field-level change, not an item-level one. The one item-level exception: the first time the Sprint field is created on a pre-existing project, backfill all existing items as `Sprint 1` (see `references/github-mapping.md`).
+4. **Existing items are read-only.** In incremental mode, never edit fields on existing items, never re-file their issues, never change their sprint or phase tag. Adding new **options** to the Phase or Sprint single-select fields is allowed (and is how sprints/phases extend) — that's a field-level change, not an item-level one. The one item-level exception: the first time the Sprint field is created on a pre-existing project, backfill all existing items as `Sprint 1` (see `~/.claude/skills/my-skills/roadmap/references/github-mapping.md`).
 5. **Don't duplicate existing issues.** Before filing, list open issues in the repo and skip or merge with anything that already describes the same feature. For duplicates, still add the existing issue to the project and set its fields (greenfield only) — that way the board reflects reality.
 6. **Create labels idempotently.** If a label already exists, reuse it. Never error on a duplicate-label response.
 7. **Draft-friendly.** Create issues as normal (not draft) but set the project Status field to `Todo` and label them `status:idea` so the user can triage before committing to them.
@@ -116,7 +116,7 @@ For the prioritization framework and feature-brainstorming prompts, load `refere
 If the user supplies competitor analysis (either inline or by pointing to a file), use it to:
 - Populate the `competitive_context` part of the discovery
 - Boost priority on features that directly address competitor pain points
-- Tag those issues with the `competitor-insight` label and mention the specific competitor + pain point in the issue body's rationale. Also set the `Competitor` text field on the project item if it was created (see `references/github-mapping.md`).
+- Tag those issues with the `competitor-insight` label and mention the specific competitor + pain point in the issue body's rationale. Also set the `Competitor` text field on the project item if it was created (see `~/.claude/skills/my-skills/roadmap/references/github-mapping.md`).
 
 No competitor data → skip this entirely. Don't invent competitors.
 
