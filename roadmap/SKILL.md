@@ -31,8 +31,8 @@ Before starting, make sure you have:
 
 1. **Target repository** in `owner/repo` form. If the user doesn't specify one, ask.
 2. **Project owner** — usually the same as the repo owner (user or org). GitHub Projects v2 live at the user/org level, not inside the repo. If the repo is under a personal account, the project owner defaults to that user; if under an org, default to the org. Only ask if it's ambiguous.
-3. **Codebase access** — either the local working directory is the project, or you can read it via `mcp__github__get_file_contents` / `search_code`.
-4. **Auth scope** — creating/editing Projects v2 requires the `project` OAuth scope (and `read:project` for reads). If using `gh`, the user may need `gh auth refresh -s project` first. If the first project call fails with a scope error, surface this clearly and stop.
+3. **Codebase access** — either the local working directory is the project, or you can read it remotely with `gh api repos/<owner>/<repo>/contents/<path>` and `gh search code`.
+4. **Auth scope** — creating/editing Projects v2 requires the `project` OAuth scope (and `read:project` for reads). The user may need `gh auth refresh -s project` first. If the first project call fails with a scope error, surface this clearly and stop.
 5. **Optional**: competitor analysis notes the user provides. If present, weave them in (see "Competitor insights" below).
 
 Confirm the repo + project owner once, then proceed autonomously. Do not ask clarifying questions about audience, vision, or priorities — infer them from the code, README, and package manifest. Making confident inferences is the whole point of this skill.
