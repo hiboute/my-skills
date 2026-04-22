@@ -20,7 +20,8 @@ Trigger on requests like:
 
 Do **not** use for:
 - Single-file edits or obvious one-line fixes → just do it, skip the pipeline.
-- Debugging an existing bug → use the `superpowers:systematic-debugging` skill.
+- Debugging an existing bug → investigate and patch it directly; the autopilot
+  phases are designed for net-new feature work, not root-cause chases.
 - Strategic planning or roadmap work → use the `roadmap` skill.
 - Finding issues to file, not fixing them → use the `ideation` skill.
 - Features that need live product input from the user partway through → do it interactively instead.
@@ -59,7 +60,7 @@ Skip the confirmation prompt only if the user explicitly said "don't stop to con
 
 ### Phase 2 — Implement
 
-Set up isolation: either use the `Agent` tool with `isolation: "worktree"` or invoke the `superpowers:using-git-worktrees` skill to create one manually before dispatch. Main branch never gets touched directly.
+Set up isolation: either use the `Agent` tool with `isolation: "worktree"` (the tool creates and cleans up a temporary worktree automatically), or create one manually via `git worktree add` when you need multiple parallel agents to share the same branch. Full manual-setup procedure: `~/.claude/skills/my-skills/autopilot/references/implement-phase.md`. Main branch never gets touched directly.
 
 Dispatch an **implementation agent** (`subagent_type: general-purpose`) with:
 - The approved plan (verbatim)
@@ -73,7 +74,7 @@ Full briefing rules and parallelization heuristics: `~/.claude/skills/my-skills/
 
 ### Phase 3 — AI review (with bounded fix loop)
 
-Dispatch a **review agent** (`subagent_type: pr-review-toolkit:code-reviewer` if available, else `feature-dev:code-reviewer`, else `general-purpose`). Brief it with:
+Dispatch a **review agent** (`subagent_type: general-purpose`). Brief it with:
 - The original feature ask
 - The plan
 - The diff against the base branch
@@ -92,7 +93,7 @@ Full briefing rules and the severity scale: `~/.claude/skills/my-skills/autopilo
 
 1. **Orchestrator-first.** You coordinate; agents execute. Don't read files or write code yourself during phases 2–3 unless an agent explicitly failed — delegation keeps the main context clean.
 2. **Fresh context per phase.** Each phase agent gets only the inputs it needs. Don't forward the previous agent's full transcript — forward its summary plus the plan/ask.
-3. **Worktree isolation on implementation.** Never implement against the main working tree. Use `isolation: "worktree"` on the implementation agent or set up a worktree first via the `superpowers:using-git-worktrees` skill.
+3. **Worktree isolation on implementation.** Never implement against the main working tree. Use `isolation: "worktree"` on the implementation agent, or create one manually with `git worktree add <path> -b autopilot/<slug>` before dispatching (see `~/.claude/skills/my-skills/autopilot/references/implement-phase.md` for the full safety procedure).
 4. **One confirmation gate.** After Phase 1. Not before or after other phases. The whole point of the skill is autonomy — gating at every step defeats it.
 5. **Bounded fix loop.** At most 2 fix rounds before surfacing to the user. Infinite iteration hides real problems.
 6. **Parallel only when independent.** If workstreams share files or depend on each other's types/APIs, run them sequentially. Spurious parallelism produces merge conflicts and context drift.

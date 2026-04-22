@@ -4,13 +4,14 @@ The review agent evaluates the diff against the ask + plan, with fresh context, 
 
 ## Agent dispatch — review
 
-Prefer in this order:
-1. `pr-review-toolkit:code-reviewer`
-2. `feature-dev:code-reviewer`
-3. `superpowers:code-reviewer`
-4. `general-purpose`
+Use `subagent_type: general-purpose`. Always available, and the briefing
+template below does the heavy lifting — specialized reviewer plugins aren't
+required.
 
-Use the first that's available in the environment. Each will behave slightly differently; that's fine — the briefing template below works for any of them.
+If you know a more specialized reviewer plugin is installed in this
+environment (e.g. one that focuses on PR-scale diffs or security), you may
+substitute it, but don't assume it exists. The skill is self-sufficient with
+`general-purpose`.
 
 ## Briefing template — review
 

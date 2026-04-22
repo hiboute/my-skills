@@ -4,12 +4,81 @@ The implementation agent(s) turn the approved plan into a committed diff on an i
 
 ## Isolation
 
-Pick one of two paths:
+Never dispatch an implementation agent against the main working tree. Pick
+one of two paths:
 
-- **Agent-level isolation** — dispatch with `isolation: "worktree"`. The tool creates a temporary worktree for the agent and cleans it up if no changes were made, otherwise returns the worktree path and branch in the result. Preferred when the implementation fits in one agent call.
-- **Skill-level isolation** — invoke the `superpowers:using-git-worktrees` skill first to create a worktree the orchestrator controls. Preferred when dispatching multiple parallel implementation agents that must land on the same branch.
+### Path A — Agent-level isolation (single-agent implementation)
 
-Never dispatch an implementation agent against the main working tree.
+Dispatch with `isolation: "worktree"`. The `Agent` tool creates a temporary
+worktree for the agent and cleans it up if no changes were made, otherwise
+returns the worktree path and branch in the result. Preferred when the plan
+says "all sequential" and the implementation fits in one agent call.
+
+### Path B — Orchestrator-managed worktree (parallel agents on shared branch)
+
+Preferred when the plan lists independent workstreams and you'll dispatch
+multiple implementation agents that must land on the same branch.
+
+**Directory selection — priority order:**
+
+1. `.worktrees/` if it already exists at the repo root (preferred — hidden)
+2. `worktrees/` if it exists (fallback — visible)
+3. A `worktree.*director` preference in the project's `CLAUDE.md` (grep for
+   it before creating anything)
+4. Default to creating `.worktrees/` yourself
+
+**Safety — verify the directory is git-ignored before creating the worktree:**
+
+```bash
+git check-ignore -q .worktrees 2>/dev/null || echo "NOT IGNORED"
+```
+
+If `.worktrees/` isn't ignored, fix it before proceeding — otherwise the
+worktree contents pollute `git status` and can get accidentally committed:
+
+```bash
+echo '.worktrees/' >> .gitignore
+git add .gitignore && git commit -m "chore: ignore .worktrees/"
+```
+
+**Create the worktree on a new branch:**
+
+```bash
+SLUG="<short-slug>"            # e.g. add-csv-export
+BRANCH="autopilot/$SLUG"
+WORKTREE_PATH=".worktrees/$SLUG"
+git worktree add "$WORKTREE_PATH" -b "$BRANCH"
+```
+
+**Install project dependencies inside the worktree** (auto-detect):
+
+```bash
+cd "$WORKTREE_PATH"
+[ -f package.json ]    && (command -v pnpm >/dev/null && pnpm install) \
+                            || (command -v npm  >/dev/null && npm install)
+[ -f pyproject.toml ]  && (command -v poetry >/dev/null && poetry install) \
+                            || (command -v uv >/dev/null && uv sync) \
+                            || (command -v pip >/dev/null && pip install -e .)
+[ -f requirements.txt ] && command -v pip >/dev/null && pip install -r requirements.txt
+[ -f Cargo.toml ]      && command -v cargo >/dev/null && cargo build
+[ -f go.mod ]          && command -v go    >/dev/null && go mod download
+```
+
+**Baseline test run** — optional but recommended. If the project has a test
+command (check `package.json` scripts, `Makefile`, `pyproject.toml`), run it
+once inside the worktree and record the result. This lets the review phase
+distinguish new test failures from pre-existing ones.
+
+**Hand the path to each dispatched agent** — every parallel agent gets
+`cwd: $WORKTREE_PATH` in its briefing so they all work against the same
+worktree on the same branch.
+
+**Cleanup after the full pipeline** — after the user accepts the handoff
+(or rejects and wants to discard), run:
+
+```bash
+git worktree remove "$WORKTREE_PATH"   # or --force if uncommitted state
+```
 
 ## Branch naming
 
